@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fladder/wrappers/media_control_wrapper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -61,6 +62,10 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
   late final double topPadding = MediaQuery.of(context).viewPadding.top;
   late final double bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
+  bool _isHorizontalDragging = false;
+  int draggingMilliseconds= 0;//记录拖动的毫秒数
+  Duration beforeDraggingPosition = Duration.zero; //拖拽前播放的位置，用于对比时间，计算累计拖动的毫秒数
+
   @override
   void initState() {
     super.initState();
@@ -94,6 +99,15 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
               children: [
                 Positioned.fill(
                   child: GestureDetector(
+                    onHorizontalDragStart: (DragStartDetails details){
+                      handleHorizontalDragStart(details,player);
+                    },
+                    onHorizontalDragUpdate: (DragUpdateDetails details){
+                      handleHorizontalDragUpdate(details,player);
+                    },
+                    onHorizontalDragEnd: (DragEndDetails details){
+                      handleHorizontalDragEnd(details,player);
+                    },
                     onTap: AdaptiveLayout.of(context).inputDevice == InputDevice.pointer
                         ? () => player.playOrPause()
                         : () => toggleOverlay(),
@@ -164,7 +178,44 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
       ),
     );
   }
+  void handleHorizontalDragStart(DragStartDetails details, MediaControlsWrapper player) {
+    if(player.lastState?.playing == true || player.lastState?.buffering == true || player.lastState?.completed == true){
+      _isHorizontalDragging = true;
+      setState(() {
+        draggingMilliseconds = 0;
+      });
+      player.pause();
+      beforeDraggingPosition = player.lastState?.position??const Duration(milliseconds: 0);
+    }
 
+  }
+  Future<void> handleHorizontalDragUpdate(DragUpdateDetails details, MediaControlsWrapper player) async {
+    if (_isHorizontalDragging) {
+      if (details.primaryDelta != null && details.primaryDelta!.abs() > 0) {
+        if ((details.delta.dx.abs() > details.delta.dy.abs())) {
+          Duration currentPosition = player.lastState?.position??const Duration(milliseconds: 0);
+          print("before currentPosition:$currentPosition");
+          int frameDraggingMilliseconds = (20000*details.delta.dx/10).toInt();//每一帧的拖拽毫秒数
+          currentPosition = Duration(milliseconds: currentPosition.inMilliseconds+frameDraggingMilliseconds);
+          await player.seek(currentPosition);
+          print("delta dx:${details.delta.dx}  after currentPosition:$currentPosition");
+          setState(() {
+            draggingMilliseconds = currentPosition.inMilliseconds - beforeDraggingPosition.inMilliseconds;
+          });
+        }
+      }
+    }
+  }
+
+  void handleHorizontalDragEnd(DragEndDetails details, MediaControlsWrapper player) {
+    if (_isHorizontalDragging) {
+      _isHorizontalDragging = false;
+      setState(() {
+        draggingMilliseconds = 0;
+      });
+      player.play();
+    }
+  }
   Widget playButton(bool playing, bool buffering) {
     return Align(
       alignment: Alignment.center,
