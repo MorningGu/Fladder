@@ -116,6 +116,17 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
                         : null,
                   ),
                 ),
+                if(draggingMilliseconds!=0)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(10, 5,10, 5),
+                      decoration: BoxDecoration(
+                          color: const Color(0x99999999),
+                          borderRadius: BorderRadius.circular(6)
+                      ),
+                      child: Text("${(draggingMilliseconds/1000.0).toStringAsFixed(1)}s"),
+                    ),
+                  ),
                 if (subtitleWidget != null) subtitleWidget,
                 if (AdaptiveLayout.of(context).isDesktop)
                   Consumer(builder: (context, ref, child) {
@@ -178,13 +189,13 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
       ),
     );
   }
-  void handleHorizontalDragStart(DragStartDetails details, MediaControlsWrapper player) {
+  Future<void> handleHorizontalDragStart(DragStartDetails details, MediaControlsWrapper player) async {
     if(player.lastState?.playing == true || player.lastState?.buffering == true || player.lastState?.completed == true){
       _isHorizontalDragging = true;
       setState(() {
         draggingMilliseconds = 0;
       });
-      player.pause();
+      await player.pause();
       beforeDraggingPosition = player.lastState?.position??const Duration(milliseconds: 0);
     }
 
@@ -207,13 +218,13 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
     }
   }
 
-  void handleHorizontalDragEnd(DragEndDetails details, MediaControlsWrapper player) {
+  Future<void> handleHorizontalDragEnd(DragEndDetails details, MediaControlsWrapper player) async {
     if (_isHorizontalDragging) {
       _isHorizontalDragging = false;
       setState(() {
         draggingMilliseconds = 0;
       });
-      player.play();
+      await player.play();
     }
   }
   Widget playButton(bool playing, bool buffering) {
